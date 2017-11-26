@@ -8,7 +8,6 @@ type IShelter =
     abstract Bring: int -> unit
 
 // See Autofac delegate factories: http://autofaccn.readthedocs.io/en/latest/advanced/delegate-factories.html
-// While
 type CatteryFactory = delegate of capacity: int -> Cattery
 and Cattery(capacity : int) =
     do Trace.WriteLine("Cattery ctor")

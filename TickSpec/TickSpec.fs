@@ -89,6 +89,7 @@ type StepDefinitions (givens,whens,thens,events,valueParsers) =
             steps
             |> Seq.map (fun (_,line) -> line.Text)
             |> String.concat "\r\n"
+    let mutable instanceProviderFactory = fun () -> new InstanceProvider() :> IInstanceProvider
     new () =
         StepDefinitions(Assembly.GetCallingAssembly())
     /// Constructs instance by reflecting against specified assembly
@@ -160,13 +161,11 @@ type StepDefinitions (givens,whens,thens,events,valueParsers) =
             |> Dict.ofSeq
         StepDefinitions(givens,whens,thens,events,valueParsers)
 
-    member val private InstanceProviderFactory : unit -> IInstanceProvider
-        = fun () -> new InstanceProvider() :> _
-        with get, set
-
     member this.ServiceProviderFactory
         with set providerFactory =
-            this.InstanceProviderFactory <- fun () -> new ServiceProviderWrapper(providerFactory()) :> IInstanceProvider
+            let mkScenarioContainer () : IInstanceProvider =
+                new ServiceProviderInstanceProvider(providerFactory()) :> _
+            instanceProviderFactory <- mkScenarioContainer
 
     /// Generate scenarios from specified lines (source undefined)
     member this.GenerateScenarios (lines:string []) =
@@ -179,7 +178,7 @@ type StepDefinitions (givens,whens,thens,events,valueParsers) =
                 |> Seq.map (resolveLine feature scenario)
                 |> Seq.toArray
             let events = chooseInScopeEvents feature scenario
-            let action = generate events valueParsers (scenario.Name, steps) this.InstanceProviderFactory
+            let action = generate events valueParsers (scenario.Name, steps) instanceProviderFactory
             {Name=scenario.Name;Description=getDescription scenario.Steps;
              Action=TickSpec.Action(action);Parameters=scenario.Parameters;Tags=scenario.Tags}
         )
@@ -216,7 +215,7 @@ type StepDefinitions (givens,whens,thens,events,valueParsers) =
             let t = lazy (genType scenario)
             TickSpec.Action(fun () ->
                 let ctor = t.Force().GetConstructor([| typeof<FSharpFunc<unit, IInstanceProvider>> |])
-                let instance = ctor.Invoke([| this.InstanceProviderFactory |])
+                let instance = ctor.Invoke([| instanceProviderFactory |])
                 let mi = instance.GetType().GetMethod("Run")
                 mi.Invoke(instance,[||]) |> ignore
             )

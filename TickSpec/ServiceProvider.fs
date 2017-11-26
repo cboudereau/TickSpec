@@ -16,7 +16,7 @@ type IInstanceProvider =
 /// Creates wrapper for <see cref="IServiceProvider" /> so it can be used in TickSpec scenarios.
 /// </summary>
 /// <param name="innerProvider">The provider to be wrapped</param>
-type ServiceProviderWrapper(innerProvider: IServiceProvider) as self =
+type ServiceProviderInstanceProvider(innerProvider: IServiceProvider) as self =
     /// Type instances for invoked steps
     let instances = Dictionary<_,_>()
 
